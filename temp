@@ -1,0 +1,75 @@
+using System;
+using System.Net;
+using System.Text;
+using System.Web;
+
+public class MockService
+{
+    private HttpListener listener;
+
+    public void StartMockService(string url)
+    {
+        listener = new HttpListener();
+        listener.Prefixes.Add(url);
+        listener.Start();
+        Console.WriteLine("Mock service started. Listening on: " + url);
+
+        // Start listening for incoming requests on a separate thread
+        var listenThread = new System.Threading.Thread(ListenForRequests);
+        listenThread.Start();
+    }
+
+    private void ListenForRequests()
+    {
+        while (listener.IsListening)
+        {
+            var context = listener.GetContext();
+            ProcessRequest(context);
+        }
+    }
+
+    private void ProcessRequest(HttpListenerContext context)
+    {
+        var request = context.Request;
+        var response = context.Response;
+
+        // Extract the HTTP method and the path from the request
+        string httpMethod = request.HttpMethod;
+        string path = request.Url.LocalPath.ToLowerInvariant();
+
+        // Set the response content and headers based on the requested path
+        string mockResponse = GetMockResponse(httpMethod, path);
+        byte[] buffer = Encoding.UTF8.GetBytes(mockResponse);
+        response.ContentLength64 = buffer.Length;
+        response.StatusCode = 200;
+        response.OutputStream.Write(buffer, 0, buffer.Length);
+        response.OutputStream.Close();
+    }
+
+    private string GetMockResponse(string httpMethod, string path)
+    {
+        // Return different mock responses based on the requested HTTP method and path
+        if (httpMethod == "GET" && path == "/api/users")
+        {
+            return "[{ \"id\": 1, \"name\": \"John Doe\" }, { \"id\": 2, \"name\": \"Jane Smith\" }]";
+        }
+        else if (httpMethod == "POST" && path == "/api/users")
+        {
+            return "{\"message\": \"User created successfully\"}";
+        }
+        else
+        {
+            return "Not Found";
+        }
+    }
+
+    public void StopMockService()
+    {
+        if (listener != null && listener.IsListening)
+        {
+            listener.Stop();
+            listener.Close();
+            Console.WriteLine("Mock service stopped.");
+        }
+    }
+}
